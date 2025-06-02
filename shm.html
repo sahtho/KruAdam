@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>การเคลื่อนที่แบบวงกลมและฮาร์มอนิกอย่างง่าย</title>
+<style>
+  body { display: flex; flex-direction: column; align-items: center; margin-top: 20px; font-family: sans-serif; }
+  canvas { border: 1px solid #ccc; }
+  button { margin-top: 15px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<canvas id="animationCanvas" width="600" height="450"></canvas>
+<button id="pauseRunButton">หยุดชั่วคราว</button>
+
+<script>
+  const canvas = document.getElementById('animationCanvas');
+  const ctx = canvas.getContext('2d');
+  const pauseRunButton = document.getElementById('pauseRunButton');
+
+  // พารามิเตอร์ของวงกลมและจุด
+  const centerX = canvas.width / 2;
+  const centerY = 200; // ปรับตำแหน่ง Y ของวงกลมให้สูงขึ้นเล็กน้อย
+  const radius = 110;
+  const dotRadius = 8; // รัศมีของจุดสีดำและเงา
+  const centerDotRadius = 3; // รัศมีของจุดศูนย์กลาง
+
+  // พารามิเตอร์เส้นแนวนอนสำหรับเงา
+  const horizontalLineY = 380; // ตำแหน่ง Y ของเส้นแนวนอน
+  const horizontalLineStartX = centerX - radius - 20;
+  const horizontalLineEndX = centerX + radius + 20;
+
+  // สถานะการเคลื่อนไหว
+  let angle = 0; // มุมปัจจุบัน (เรเดียน)
+  const angularSpeed = 0.03; // ความเร็วเชิงมุม ค่าเดิม 0.02 (เรเดียนต่อเฟรม)
+  let isRunning = true; // สถานะการเล่น/หยุด
+  let animationFrameId;
+
+  // --- ฟังก์ชันสำหรับการวาด ---
+
+  function drawDashedCircle() {
+    ctx.beginPath();
+    ctx.setLineDash([8, 8]); // [ความยาวเส้นประ, ความยาวช่องว่าง]
+    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    ctx.strokeStyle = 'gray';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]); // รีเซ็ตเส้นประ
+  }
+
+  function drawCenterPoint() {
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, centerDotRadius, 0, 2 * Math.PI);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+  }
+
+  function drawHorizontalLine() {
+    ctx.beginPath();
+    ctx.moveTo(horizontalLineStartX, horizontalLineY);
+    ctx.lineTo(horizontalLineEndX, horizontalLineY);
+    ctx.strokeStyle = 'blue';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  function drawDot(x, y, color, r = dotRadius) {
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  // --- ลูปแอนิเมชัน ---
+
+  function animate() {
+    // ล้าง Canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // วาดองค์ประกอบคงที่
+    drawDashedCircle();
+    drawCenterPoint();
+    drawHorizontalLine();
+
+    // คำนวณตำแหน่งจุดสีดำบนวงกลม
+    const blackDotX = centerX + radius * Math.cos(angle);
+    const blackDotY = centerY + radius * Math.sin(angle);
+
+    // วาดจุดสีดำ
+    drawDot(blackDotX, blackDotY, 'black');
+
+    // คำนวณตำแหน่งเงาสีน้ำเงินบนเส้นแนวนอน (SHM)
+    // ตำแหน่ง X ของเงาจะเหมือนกับตำแหน่ง X ของจุดสีดำ
+    const shadowX = blackDotX;
+    const shadowY = horizontalLineY;
+
+    // วาดเงาสีน้ำเงิน
+    drawDot(shadowX, shadowY, 'blue');
+
+    // อัปเดตมุมสำหรับการเคลื่อนที่ หากกำลังทำงาน
+    if (isRunning) {
+      angle -= angularSpeed;  //เดิมเป็น +=
+      if (angle >= -2 * Math.PI) {  //เดิมเป็น angle>=2
+        angle += 2 * Math.PI; // วนลูปมุม เดิมเป็น -=
+      }
+    }
+
+    // ขอเฟรมต่อไป
+    animationFrameId = requestAnimationFrame(animate);
+  }
+
+  // --- การควบคุมปุ่ม ---
+
+  pauseRunButton.addEventListener('click', () => {
+    isRunning = !isRunning;
+    if (isRunning) {
+      pauseRunButton.textContent = 'หยุดชั่วคราว';
+      // ไม่จำเป็นต้องเรียก animate() อีกครั้งถ้า requestAnimationFrame ยังคงทำงานอยู่
+      // แต่ถ้าหยุดด้วย cancelAnimationFrame ก่อนหน้านี้ ต้องเรียก animate() ใหม่
+      // ในโค้ดนี้ เราไม่ได้ cancelAnimationFrame ดังนั้นมันจะทำงานต่อเอง
+    } else {
+      pauseRunButton.textContent = 'เล่นต่อ';
+      // หากต้องการหยุดการ re-draw อย่างสมบูรณ์เมื่อกด Pause
+      // สามารถใช้ cancelAnimationFrame(animationFrameId);
+      // และเรียก animate(); อีกครั้งเมื่อ isRunning เป็น true
+      // แต่ในกรณีนี้ การปล่อยให้ requestAnimationFrame ทำงานต่อ
+      // และแค่ไม่อัปเดต angle ก็ให้ผลลัพธ์ที่ต้องการแล้ว (ภาพจะหยุดนิ่ง)
+    }
+  });
+
+  // --- เริ่มแอนิเมชัน ---
+  animate();
+</script>
+
+</body>
+</html>
